@@ -1,0 +1,24 @@
+{
+  "name": "whatsapp-class-schedule-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "nodemon index.js --watch index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@open-wa/wa-automate": "^4.76.0",
+    "@wppconnect-team/wppconnect": "^1.37.1",
+    "node-cron": "^4.0.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "packageManager": "yarn@4.9.1+sha512.f95ce356460e05be48d66401c1ae64ef84d163dd689964962c6888a9810865e39097a5e9de748876c2e0bf89b232d583c33982773e9903ae7a76257270986538"
+}
