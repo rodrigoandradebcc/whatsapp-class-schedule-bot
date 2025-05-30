@@ -48,8 +48,7 @@ async function initClient(): Promise<Whatsapp> {
     updatesLog: true,
     tokenStore: "file",
     browserArgs: ["--no-sandbox"],
-    autoClose: false,
-    qrTimeout: 0,
+    autoClose: 60000,
     puppeteerOptions: { args: ["--no-sandbox"] },
     catchQR: (base64Qrimg, asciiQR, attempts, urlCode) => {
       console.clear();
