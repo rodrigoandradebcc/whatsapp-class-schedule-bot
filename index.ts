@@ -3,13 +3,11 @@ import type { Whatsapp } from "@wppconnect-team/wppconnect";
 import { schedule, ScheduledTask } from "node-cron";
 
 // ── CONFIGURAÇÃO DE CRONS E TIMEZONE ────────────────────────────────────────────
-const DAILY_CRON = "* * * * *"; // testes: todo minuto
-const POLL_CRON = "*/2 * * * * *"; // testes: a cada 2 segundos
 const TZ = "America/Belem";
+const POLL_CRON = "*/2 * * * * *"; // para checagem de votos em teste
 
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
 const GROUP_ID = "120363419276384559@g.us";
-// const CT_SABOIA_GROUP_ID = "559182178645-1552489380@g.us";
 const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
 const AFTERNOON_AND_EVENING_OPTIONS = [
   "12h",
@@ -24,7 +22,7 @@ const AFTERNOON_AND_EVENING_OPTIONS = [
   "21h",
   "Off",
 ];
-const CAPACITY = 1; // máximo de votos por opção
+const CAPACITY = 2; // máximo de votos por opção
 
 // ── TIPAGENS DE ESTADO ─────────────────────────────────────────────────────────
 interface State {
@@ -44,54 +42,34 @@ interface Vote {
 async function initClient(): Promise<Whatsapp> {
   return wppconnect.create({
     session: "POLL_BOT",
+    headless: true,
+    useChrome: false,
+    disableWelcome: true,
+    updatesLog: true,
+    tokenStore: "file",
+    browserArgs: ["--no-sandbox"],
+    puppeteerOptions: { args: ["--no-sandbox"] },
     catchQR: (base64Qrimg, asciiQR, attempts, urlCode) => {
       console.clear();
       console.log("📲 Escaneie o QR Code abaixo para logar no WhatsApp:");
-      console.log(asciiQR); // mostra o QR no terminal
+      console.log(asciiQR);
       console.log(`🔗 urlCode: ${urlCode}`);
     },
     statusFind: (statusSession, session) => {
       console.log("📡 Status da sessão:", statusSession);
       console.log("📌 Nome da sessão:", session);
     },
-    headless: true, // não abre navegador
-    devtools: false,
-    useChrome: false, // usa Chromium interno
-    debug: false,
-    logQR: true, // já loga o QR code no terminal
-    browserWS: "",
-    browserArgs: ["--no-sandbox"],
-    puppeteerOptions: {
-      args: ["--no-sandbox"],
-    },
-    disableWelcome: true,
-    updatesLog: true,
-    autoClose: 0, // nunca fecha automaticamente
-    tokenStore: "file",
   });
 }
 
-/** gera a pergunta com data de amanhã em DD/MM/YYYY */
-function buildQuestion(): string {
+/** gera a pergunta com data no formato DD/MM/YYYY, com offset de dias */
+function buildQuestionForOffset(offsetDays: number): string {
   const date = new Date();
-  date.setDate(date.getDate() + 1);
+  date.setDate(date.getDate() + offsetDays);
   const dd = String(date.getDate()).padStart(2, "0");
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const yyyy = date.getFullYear();
-  return `Qual horário para o treino de ${dd}/${mm}/${yyyy}?`;
-}
-
-async function sendPoll(client: Whatsapp): Promise<string> {
-  const question = buildQuestion();
-  const poll = await client.sendPollMessage(
-    GROUP_ID,
-    question,
-    MORNING_OPTIONS,
-    {
-      selectableCount: 1,
-    }
-  );
-  return poll.id;
+  return `Qual seu horário para o treino de ${dd}/${mm}/${yyyy}?`;
 }
 
 /** conta votos por opção */
@@ -161,7 +139,7 @@ async function checkVotes(
     const { votes } = await client.getVotes(pollId);
     const counts = countVotesByName(votes as Vote[]);
 
-    // reabertura
+    // reabertura de vagas
     state.fullNotified.forEach((opt) => {
       if ((counts[opt] || 0) < CAPACITY) {
         notifyGroupSlotOpened(client, opt);
@@ -173,7 +151,7 @@ async function checkVotes(
     });
 
     // fechamento e votos extras
-    (Object.entries(counts) as [string, number][]).forEach(([opt, cnt]) => {
+    Object.entries(counts).forEach(([opt, cnt]) => {
       if (cnt === CAPACITY && !state.fullNotified.has(opt)) {
         notifyGroupCapacityReached(client, opt);
         state.fullNotified.add(opt);
@@ -196,9 +174,9 @@ async function checkVotes(
   }
 }
 
+/** lista todos os grupos */
 async function logAllGroupIds(client: Whatsapp): Promise<void> {
   const groupChats = await client.listChats({ onlyGroups: true });
-
   console.log("📋 Grupos ativos:");
   groupChats.forEach((chat) => {
     console.log(`• ${chat.name} — ID: ${chat.id._serialized}`);
@@ -209,21 +187,80 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
 (async () => {
   const client = await initClient();
   await logAllGroupIds(client);
-  const state: State = { fullNotified: new Set(), userNotified: new Set() };
 
-  let pollId: string;
-  let voteJob: ScheduledTask;
+  const stateMorning: State = {
+    fullNotified: new Set(),
+    userNotified: new Set(),
+  };
+  const stateAfternoon: State = {
+    fullNotified: new Set(),
+    userNotified: new Set(),
+  };
 
-  async function resetQuiz(): Promise<void> {
-    state.fullNotified.clear();
-    state.userNotified.clear();
-    voteJob?.stop();
-    pollId = await sendPoll(client);
-    voteJob = schedule(POLL_CRON, () => checkVotes(client, pollId, state), {
-      timezone: TZ,
-    });
+  let morningPollId: string;
+  let morningJob: ScheduledTask;
+  let afternoonPollId: string;
+  let afternoonJob: ScheduledTask;
+
+  /** reseta e inicia enquete da manhã */
+  async function resetMorningPoll(): Promise<void> {
+    morningJob?.stop();
+    stateMorning.fullNotified.clear();
+    stateMorning.userNotified.clear();
+    const question = buildQuestionForOffset(1);
+    const poll = await client.sendPollMessage(
+      GROUP_ID,
+      question,
+      MORNING_OPTIONS,
+      { selectableCount: 1 }
+    );
+    morningPollId = poll.id;
+    morningJob = schedule(
+      POLL_CRON,
+      () => checkVotes(client, morningPollId, stateMorning),
+      { timezone: TZ }
+    );
   }
 
-  await resetQuiz();
-  schedule(DAILY_CRON, resetQuiz, { timezone: TZ });
+  /** reseta e inicia enquete da tarde/noite */
+  async function resetAfternoonPoll(): Promise<void> {
+    afternoonJob?.stop();
+    stateAfternoon.fullNotified.clear();
+    stateAfternoon.userNotified.clear();
+    const question = buildQuestionForOffset(0);
+    const poll = await client.sendPollMessage(
+      GROUP_ID,
+      question,
+      AFTERNOON_AND_EVENING_OPTIONS,
+      { selectableCount: 1 }
+    );
+    afternoonPollId = poll.id;
+    afternoonJob = schedule(
+      POLL_CRON,
+      () => checkVotes(client, afternoonPollId, stateAfternoon),
+      { timezone: TZ }
+    );
+  }
+
+  // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
+  schedule(
+    "0 21 * * 0-5",
+    () => {
+      resetMorningPoll().catch(console.error);
+    },
+    { timezone: TZ }
+  );
+
+  // Agendamento da enquete da tarde/noite para testes: a cada minuto
+  schedule(
+    "* * * * *",
+    // "0 9 * * 1-6",
+    () => {
+      resetAfternoonPoll().catch(console.error);
+    },
+    { timezone: TZ }
+  );
+
+  // Para voltar ao cron real (09:00 de seg–sáb), comente a linha acima e use:
+  // schedule("0 9 * * 1-6", () => { resetAfternoonPoll().catch(console.error); }, { timezone: TZ });
 })();
