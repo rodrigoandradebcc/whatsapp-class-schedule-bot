@@ -9,7 +9,21 @@ const TZ = "America/Belem";
 
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
 const GROUP_ID = "120363419276384559@g.us";
-const OPTIONS = ["6h", "7h", "8h", "9h"];
+// const CT_SABOIA_GROUP_ID = "559182178645-1552489380@g.us";
+const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
+const AFTERNOON_AND_EVENING_OPTIONS = [
+  "12h",
+  "13h",
+  "14h",
+  "15h",
+  "16h",
+  "17h",
+  "18h",
+  "19h",
+  "20h",
+  "21h",
+  "Off",
+];
 const CAPACITY = 1; // máximo de votos por opção
 
 // ── TIPAGENS DE ESTADO ─────────────────────────────────────────────────────────
@@ -67,12 +81,16 @@ function buildQuestion(): string {
   return `Qual horário para o treino de ${dd}/${mm}/${yyyy}?`;
 }
 
-/** envia a enquete e devolve o pollId */
 async function sendPoll(client: Whatsapp): Promise<string> {
   const question = buildQuestion();
-  const poll = await client.sendPollMessage(GROUP_ID, question, OPTIONS, {
-    selectableCount: 1,
-  });
+  const poll = await client.sendPollMessage(
+    GROUP_ID,
+    question,
+    MORNING_OPTIONS,
+    {
+      selectableCount: 1,
+    }
+  );
   return poll.id;
 }
 
@@ -178,9 +196,19 @@ async function checkVotes(
   }
 }
 
+async function logAllGroupIds(client: Whatsapp): Promise<void> {
+  const groupChats = await client.listChats({ onlyGroups: true });
+
+  console.log("📋 Grupos ativos:");
+  groupChats.forEach((chat) => {
+    console.log(`• ${chat.name} — ID: ${chat.id._serialized}`);
+  });
+}
+
 // ── MAIN ────────────────────────────────────────────────────────────────────────
 (async () => {
   const client = await initClient();
+  await logAllGroupIds(client);
   const state: State = { fullNotified: new Set(), userNotified: new Set() };
 
   let pollId: string;
