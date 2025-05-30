@@ -245,7 +245,8 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
 
   // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
   schedule(
-    "0 14 * * 0-5",
+    // "0 14 * * 0-5",
+    "* * * * *",
     () => {
       resetMorningPoll().catch(console.error);
     },
