@@ -1,35 +1,45 @@
-# Yarn PnP
-.pnp.*
-.pnp_loader.*
-
-# Dependências e build
-/node_modules/
-/dist/
-/build/
-
-# Banco de dados / cache local do bot
-tokens/
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
-yarn-error.log*
-*.log
-
-# Arquivos de ambiente
-.env
-.env.*.local
-
-# Cobertura de teste
+# TypeScript incremental build file
+*.tsbuildinfo
+# ts-node cache (quando usado)
+.ts-node/
+# ESLint cache
+.eslintcache
+# Yarn v2 PnP extra
+# (se você estiver mesmo usando Plug’n’Play, senão pode omitir)
+.pnp.cjs
+.pnp.loader.mjs
+# Yarn 2+ (caso use .yarn/ para cache/plugins)
+.yarn/*
+!.yarn/cache
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+# Test runners / coverage extras
+.nyc_output/
+jest.config.ts#?   # se tiver
 /coverage/
+# depuração de ferramentas mono-repo / lerna
+lerna-debug.log*
+# VSCode tasks / test directories
+.vscode-test/
+# Histórico de IDEs (plugin)
+.history/
+# Cache de bundlers/front-end (se algum dia vier a usar)
+.cache/
+.parcel-cache/
+# Cache do TS e do ts-node
+*.tsbuildinfo 
+.ts-node/
+# Caso queira deixar o seu index.ts “puro” e nunca commitar o index.js
+/index.js
+# ESLint cache
+.eslintcache
 
-# IDEs e sistema
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-.DS_Store
-Thumbs.db
+# managed by open-wa
+**.data.json
+**.node-persist**
+**_IGNORE_**
+# end managed by open-wa
+node_modules
