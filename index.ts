@@ -7,7 +7,13 @@ const TZ = "America/Belem";
 const POLL_CRON = "*/2 * * * * *"; // para checagem de votos em teste
 
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
-const GROUP_ID = "120363419276384559@g.us";
+
+// GRUPO DE TESTE
+// const GROUP_ID = "120363419276384559@g.us";
+
+// GRUPO REAL CT SABOIA
+const GROUP_ID = "559182178645-1552489380@g.us";
+
 const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
 const AFTERNOON_AND_EVENING_OPTIONS = [
   "12h",
@@ -22,6 +28,8 @@ const AFTERNOON_AND_EVENING_OPTIONS = [
   "21h",
   "Off",
 ];
+const SATURDAY_OPTIONS = ["7h", "8h", "9h", "10h", "11h", "12h", "13h", "14h"];
+
 const CAPACITY = 2; // máximo de votos por opção
 
 // ── TIPAGENS DE ESTADO ─────────────────────────────────────────────────────────
@@ -197,11 +205,17 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
     fullNotified: new Set(),
     userNotified: new Set(),
   };
+  const stateSaturday: State = {
+    fullNotified: new Set(),
+    userNotified: new Set(),
+  };
 
   let morningPollId: string;
   let morningJob: ScheduledTask;
   let afternoonPollId: string;
   let afternoonJob: ScheduledTask;
+  let saturdayPollId: string;
+  let saturdayJob: ScheduledTask;
 
   /** reseta e inicia enquete da manhã */
   async function resetMorningPoll(): Promise<void> {
@@ -219,6 +233,25 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
     morningJob = schedule(
       POLL_CRON,
       () => checkVotes(client, morningPollId, stateMorning),
+      { timezone: TZ }
+    );
+  }
+
+  async function resetSaturdayPoll(): Promise<void> {
+    saturdayJob?.stop();
+    stateSaturday.fullNotified.clear();
+    stateSaturday.userNotified.clear();
+    const question = buildQuestionForOffset(1); // offset 1: pergunta para sábado
+    const poll = await client.sendPollMessage(
+      GROUP_ID,
+      question,
+      SATURDAY_OPTIONS,
+      { selectableCount: 1 }
+    );
+    saturdayPollId = poll.id;
+    saturdayJob = schedule(
+      POLL_CRON,
+      () => checkVotes(client, saturdayPollId, stateSaturday),
       { timezone: TZ }
     );
   }
@@ -245,8 +278,8 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
 
   // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
   schedule(
-    // "0 21 * * 0-5",
-    "* * * * *",
+    "0 21 * * 0-4",
+    // "* * * * *",
     () => {
       resetMorningPoll().catch(console.error);
     },
@@ -259,6 +292,15 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
     "0 9 * * 1-6",
     () => {
       resetAfternoonPoll().catch(console.error);
+    },
+    { timezone: TZ }
+  );
+
+  schedule(
+    "0 21 * * 5",
+    // "* * * * *",
+    () => {
+      resetSaturdayPoll().catch(console.error);
     },
     { timezone: TZ }
   );
