@@ -28,14 +28,33 @@ interface Vote {
 
 /** inicializa e retorna o client WPPConnect */
 async function initClient(): Promise<Whatsapp> {
-  return wppconnect.create(
-    "POLL_BOT",
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    { puppeteerOptions: { headless: false } }
-  );
+  return wppconnect.create({
+    session: "POLL_BOT",
+    catchQR: (base64Qrimg, asciiQR, attempts, urlCode) => {
+      console.clear();
+      console.log("📲 Escaneie o QR Code abaixo para logar no WhatsApp:");
+      console.log(asciiQR); // mostra o QR no terminal
+      console.log(`🔗 urlCode: ${urlCode}`);
+    },
+    statusFind: (statusSession, session) => {
+      console.log("📡 Status da sessão:", statusSession);
+      console.log("📌 Nome da sessão:", session);
+    },
+    headless: true, // não abre navegador
+    devtools: false,
+    useChrome: false, // usa Chromium interno
+    debug: false,
+    logQR: true, // já loga o QR code no terminal
+    browserWS: "",
+    browserArgs: ["--no-sandbox"],
+    puppeteerOptions: {
+      args: ["--no-sandbox"],
+    },
+    disableWelcome: true,
+    updatesLog: true,
+    autoClose: 0, // nunca fecha automaticamente
+    tokenStore: "file",
+  });
 }
 
 /** gera a pergunta com data de amanhã em DD/MM/YYYY */
