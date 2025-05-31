@@ -297,7 +297,7 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
   );
 
   schedule(
-    "0 21 * * 5",
+    "0 19 * * 5",
     // "* * * * *",
     () => {
       resetSaturdayPoll().catch(console.error);
