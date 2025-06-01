@@ -305,6 +305,18 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
     { timezone: TZ }
   );
 
+  schedule(
+    "* * * * *", // todos os dias às 12:00
+    async () => {
+      try {
+        await client.sendText(GROUP_ID, "🤖 Bot CT.");
+      } catch (error) {
+        console.error("Erro ao enviar mensagem de teste:", error);
+      }
+    },
+    { timezone: TZ }
+  );
+
   // Para voltar ao cron real (09:00 de seg–sáb), comente a linha acima e use:
   // schedule("0 9 * * 1-6", () => { resetAfternoonPoll().catch(console.error); }, { timezone: TZ });
 })();
