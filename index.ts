@@ -9,10 +9,10 @@ const POLL_CRON = "*/2 * * * * *"; // para checagem de votos em teste
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
 
 // GRUPO DE TESTE
-const GROUP_ID = "120363419276384559@g.us";
+// const GROUP_ID = "120363419276384559@g.us";
 
 // GRUPO REAL CT SABOIA
-// const GROUP_ID = "559182178645-1552489380@g.us";
+const GROUP_ID = "559182178645-1552489380@g.us";
 
 const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
 const AFTERNOON_AND_EVENING_OPTIONS = [
@@ -30,7 +30,7 @@ const AFTERNOON_AND_EVENING_OPTIONS = [
 ];
 const SATURDAY_OPTIONS = ["7h", "8h", "9h", "10h", "11h", "12h", "13h", "14h"];
 
-const CAPACITY = 1; // máximo de votos por opção
+const CAPACITY = 16; // máximo de votos por opção
 
 // ── TIPAGENS DE ESTADO ─────────────────────────────────────────────────────────
 interface State {
