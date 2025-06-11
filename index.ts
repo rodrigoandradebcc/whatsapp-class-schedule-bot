@@ -85,14 +85,11 @@ function buildQuestionForOffset(offsetDays: number): string {
 /** conta votos por opção */
 function countVotesByName(votes: Vote[]): Record<string, number> {
   return votes.reduce((acc, vote) => {
-    // garante que selectedOptions exista
-    (vote.selectedOptions ?? [])
-      // remove eventuais null/undefined ou opts sem name
-      .filter((opt): opt is { name: string } => Boolean(opt && opt.name))
-      .forEach((opt) => {
-        const name = opt.name;
-        acc[name] = (acc[name] || 0) + 1;
-      });
+    for (const opt of vote.selectedOptions ?? []) {
+      if (!opt) continue;
+      const key = opt.name ?? "Sem nome";
+      acc[key] = (acc[key] || 0) + 1;
+    }
     return acc;
   }, {} as Record<string, number>);
 }
