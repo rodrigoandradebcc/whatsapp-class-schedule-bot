@@ -30,8 +30,8 @@ const AFTERNOON_AND_EVENING_OPTIONS = [
 ];
 const SATURDAY_OPTIONS = ["7h", "8h", "9h", "10h", "11h", "12h", "13h", "14h"];
 
-// const CAPACITY = 16\; // máximo de votos por opção
-const CAPACITY = 1; // máximo de votos por opção
+const CAPACITY = 16; // máximo de votos por opção
+// const CAPACITY = 1; // máximo de votos por opção
 
 // ── TIPAGENS DE ESTADO ─────────────────────────────────────────────────────────
 interface State {
@@ -86,7 +86,11 @@ function buildQuestionForOffset(offsetDays: number): string {
 function countVotesByName(votes: Vote[]): Record<string, number> {
   return votes.reduce((acc, vote) => {
     for (const opt of vote.selectedOptions ?? []) {
-      if (!opt) continue;
+      if (!opt || !opt.name) {
+        console.warn("voto sem name:", vote);
+        continue;
+      }
+
       const key = opt.name ?? "Sem nome";
       acc[key] = (acc[key] || 0) + 1;
     }
@@ -292,8 +296,8 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
 
   // Agendamento da enquete da tarde/noite para testes: a cada minuto
   schedule(
-    "* * * * *",
-    // "0 9 * * 1-6",
+    // "* * * * *",
+    "0 9 * * 1-5",
     () => {
       resetAfternoonPoll().catch(console.error);
     },
