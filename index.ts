@@ -9,10 +9,10 @@ const TZ = "America/Belem";
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
 
 // GRUPO DE TESTE
-// const GROUP_ID = "120363419276384559@g.us";
+const GROUP_ID = "120363419276384559@g.us";
 
 // GRUPO REAL CT SABOIA
-const GROUP_ID = "559182178645-1552489380@g.us";
+// const GROUP_ID = "559182178645-1552489380@g.us";
 
 const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
 const AFTERNOON_AND_EVENING_OPTIONS = [
@@ -30,8 +30,8 @@ const AFTERNOON_AND_EVENING_OPTIONS = [
 ];
 const SATURDAY_OPTIONS = ["7h", "8h", "9h", "10h", "11h", "12h", "13h", "14h"];
 
-const CAPACITY = 16; // máximo de votos por opção
-// const CAPACITY = 1; // máximo de votos por opção
+// const CAPACITY = 16\; // máximo de votos por opção
+const CAPACITY = 1; // máximo de votos por opção
 
 // ── TIPAGENS DE ESTADO ─────────────────────────────────────────────────────────
 interface State {
@@ -85,11 +85,14 @@ function buildQuestionForOffset(offsetDays: number): string {
 /** conta votos por opção */
 function countVotesByName(votes: Vote[]): Record<string, number> {
   return votes.reduce((acc, vote) => {
-    vote.selectedOptions.forEach((opt) => {
-      console.log("opt", opt);
-
-      if (opt.name) acc[opt.name] = (acc[opt.name] || 0) + 1;
-    });
+    // garante que selectedOptions exista
+    (vote.selectedOptions ?? [])
+      // remove eventuais null/undefined ou opts sem name
+      .filter((opt): opt is { name: string } => Boolean(opt && opt.name))
+      .forEach((opt) => {
+        const name = opt.name;
+        acc[name] = (acc[name] || 0) + 1;
+      });
     return acc;
   }, {} as Record<string, number>);
 }
@@ -292,8 +295,8 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
 
   // Agendamento da enquete da tarde/noite para testes: a cada minuto
   schedule(
-    // "* * * * *",
-    "0 9 * * 1-6",
+    "* * * * *",
+    // "0 9 * * 1-6",
     () => {
       resetAfternoonPoll().catch(console.error);
     },
