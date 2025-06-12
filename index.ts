@@ -42,7 +42,7 @@ interface State {
 interface Vote {
   selectedOptions: Array<{ name?: string }>;
   timestamp: number;
-  sender: { _serialized: string };
+  sender: { _serialized: string; user: string };
 }
 
 // ── FUNÇÕES AUXILIARES ──────────────────────────────────────────────────────────
@@ -85,13 +85,14 @@ function buildQuestionForOffset(offsetDays: number): string {
 /** conta votos por opção */
 function countVotesByName(votes: Vote[]): Record<string, number> {
   return votes.reduce((acc, vote) => {
+    const fallbackName = `[sem nome] - ${vote.sender.user}`;
     for (const opt of vote.selectedOptions ?? []) {
       if (!opt || !opt.name) {
         console.warn("voto sem name:", vote);
         continue;
       }
 
-      const key = opt.name ?? "Sem nome";
+      const key = opt.name ?? fallbackName;
       acc[key] = (acc[key] || 0) + 1;
     }
     return acc;
@@ -101,14 +102,11 @@ function countVotesByName(votes: Vote[]): Record<string, number> {
 /** retorna último votante para uma opção */
 function getLastVoterForOption(votes: Vote[], opt: string): string | null {
   const filtered = votes.filter((v) =>
-    v.selectedOptions.some((o) => o.name === opt)
+    v.selectedOptions.some((o) => o && o.name === opt)
   );
   filtered.sort((a, b) => a.timestamp - b.timestamp);
-  return filtered.length
-    ? filtered[filtered.length - 1].sender._serialized
-    : null;
+  return filtered.length ? filtered[filtered.length - 1].sender.user : null;
 }
-
 /** notifica grupo que opção atingiu a capacidade */
 async function notifyGroupCapacityReached(
   client: Whatsapp,
@@ -138,7 +136,7 @@ async function notifyUserSlotClosed(
   userId: string
 ): Promise<void> {
   const contact = await client.getContact(userId);
-  const name = contact.pushname || contact.formattedName || "Participante";
+  const name = contact.pushname || contact.formattedName || userId;
   await client.sendText(
     GROUP_ID,
     `${name}, o horário de *${opt}* está fechado. Por favor, escolha outro.`
