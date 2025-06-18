@@ -303,7 +303,7 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
   // );
 
   schedule(
-    "7 19 * * *", //FERIADO
+    "10 19 * * *", //FERIADO
     // "0 19 * * 5",
     // "* * * * *",
     () => {
