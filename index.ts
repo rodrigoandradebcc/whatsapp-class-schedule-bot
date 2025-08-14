@@ -13,6 +13,7 @@ const TZ = "America/Belem";
 
 // GRUPO REAL CT SABOIA
 const GROUP_ID = "559182178645-1552489380@g.us";
+const HOLIDAY_OPTIONS = ["6h", "7h", "8h", "9h", "10h", "11h"];
 
 const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
 const AFTERNOON_AND_EVENING_OPTIONS = [
@@ -262,6 +263,25 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
     );
   }
 
+  async function resetHolidayPoll(): Promise<void> {
+    saturdayJob?.stop();
+    stateSaturday.fullNotified.clear();
+    stateSaturday.userNotified.clear();
+    const question = buildQuestionForOffset(1); // offset 1: pergunta para sábado
+    const poll = await client.sendPollMessage(
+      GROUP_ID,
+      question,
+      HOLIDAY_OPTIONS,
+      { selectableCount: 1 }
+    );
+    saturdayPollId = poll.id;
+    saturdayJob = schedule(
+      POLL_CRON,
+      () => checkVotes(client, saturdayPollId, stateSaturday),
+      { timezone: TZ }
+    );
+  }
+
   /** reseta e inicia enquete da tarde/noite */
   async function resetAfternoonPoll(): Promise<void> {
     afternoonJob?.stop();
@@ -283,24 +303,24 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
   }
 
   // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
-  schedule(
-    "0 19 * * 0-4",
-    // "* * * * *",
-    () => {
-      resetMorningPoll().catch(console.error);
-    },
-    { timezone: TZ }
-  );
+  // schedule(
+  //   "0 19 * * 0-4",
+  //   // "* * * * *",
+  //   () => {
+  //     resetMorningPoll().catch(console.error);
+  //   },
+  //   { timezone: TZ }
+  // );
 
   // Agendamento da enquete da tarde/noite para testes: a cada minuto
-  schedule(
-    // "* * * * *",
-    "0 9 * * 1-5",
-    () => {
-      resetAfternoonPoll().catch(console.error);
-    },
-    { timezone: TZ }
-  );
+  // schedule(
+  //   // "* * * * *",
+  //   "0 9 * * 1-5",
+  //   () => {
+  //     resetAfternoonPoll().catch(console.error);
+  //   },
+  //   { timezone: TZ }
+  // );
 
   schedule(
     // "10 19 * * *", //FERIADO
@@ -308,6 +328,14 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
     // "* * * * *",
     () => {
       resetSaturdayPoll().catch(console.error);
+    },
+    { timezone: TZ }
+  );
+
+  schedule(
+    "0 19 * * *", // 19:00 de qualquer dia
+    () => {
+      resetHolidayPoll().catch(console.error);
     },
     { timezone: TZ }
   );
