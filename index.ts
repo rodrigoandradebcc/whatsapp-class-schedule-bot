@@ -314,7 +314,7 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
   // Agendamento da enquete da tarde/noite para testes:
   schedule(
     // "* * * * *",
-    "50 9 * * 1-5",
+    "0 9 * * 1-5",
     () => {
       resetAfternoonPoll().catch(console.error);
     },
