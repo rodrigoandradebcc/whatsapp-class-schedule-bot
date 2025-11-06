@@ -9,10 +9,10 @@ const TZ = "America/Belem";
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
 
 // GRUPO DE TESTE
-const GROUP_ID = "120363419276384559@g.us";
+// const GROUP_ID = "120363419276384559@g.us";
 
 // GRUPO REAL CT SABOIA
-// const GROUP_ID = "559182178645-1552489380@g.us";
+const GROUP_ID = "559182178645-1552489380@g.us";
 // const HOLIDAY_OPTIONS = ["6h", "7h", "8h", "9h", "10h", "11h"];
 
 const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
@@ -350,7 +350,9 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
   // );
 
   schedule(
-    "0 19 * * *", // 19:00 de qualquer dia
+    // "0 19 * * *", // 19:00 de qualquer dia
+    // "* * * * *",
+    "45 16 * * *",
     () => {
       resetHolidayPoll().catch(console.error);
     },
