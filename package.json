@@ -13,7 +13,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@open-wa/wa-automate": "^4.76.0",
     "@wppconnect-team/wppconnect": "^1.37.2",
     "node-cron": "^4.0.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
