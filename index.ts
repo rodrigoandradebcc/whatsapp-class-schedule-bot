@@ -352,7 +352,7 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
   schedule(
     // "0 19 * * *", // 19:00 de qualquer dia
     // "* * * * *",
-    "45 16 * * *",
+    "48 16 * * *",
     () => {
       resetHolidayPoll().catch(console.error);
     },
