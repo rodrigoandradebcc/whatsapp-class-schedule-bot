@@ -13,7 +13,6 @@ const TZ = "America/Belem";
 
 // GRUPO REAL CT SABOIA
 const GROUP_ID = "559182178645-1552489380@g.us";
-// const HOLIDAY_OPTIONS = ["6h", "7h", "8h", "9h", "10h", "11h"];
 
 const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
 const AFTERNOON_AND_EVENING_OPTIONS = [
@@ -30,18 +29,6 @@ const AFTERNOON_AND_EVENING_OPTIONS = [
   "Off",
 ];
 const SATURDAY_OPTIONS = ["7h", "8h", "9h", "10h", "11h", "12h", "13h", "14h"];
-
-const COP_HOLIDAY_OPTIONS = [
-  "7h",
-  "8h",
-  "9h",
-  "10h",
-  "11h",
-  "12h",
-  "13h",
-  "14h",
-  "Off",
-];
 
 const CAPACITY = 16; // máximo de votos por opção
 // const CAPACITY = 1; // máximo de votos por opção
@@ -228,10 +215,6 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
     fullNotified: new Set(),
     userNotified: new Set(),
   };
-  const stateHoliday: State = {
-    fullNotified: new Set(),
-    userNotified: new Set(),
-  };
 
   let morningPollId: string;
   let morningJob: ScheduledTask;
@@ -239,122 +222,92 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
   let afternoonJob: ScheduledTask;
   let saturdayPollId: string;
   let saturdayJob: ScheduledTask;
-  let holidayPollId: string;
-  let holidayJob: ScheduledTask;
 
   /** reseta e inicia enquete da manhã */
-  // async function resetMorningPoll(): Promise<void> {
-  //   morningJob?.stop();
-  //   stateMorning.fullNotified.clear();
-  //   stateMorning.userNotified.clear();
-  //   const question = buildQuestionForOffset(1);
-  //   const poll = await client.sendPollMessage(
-  //     GROUP_ID,
-  //     question,
-  //     MORNING_OPTIONS,
-  //     { selectableCount: 1 }
-  //   );
-  //   morningPollId = poll.id;
-  //   morningJob = schedule(
-  //     POLL_CRON,
-  //     () => checkVotes(client, morningPollId, stateMorning),
-  //     { timezone: TZ }
-  //   );
-  // }
+  async function resetMorningPoll(): Promise<void> {
+    morningJob?.stop();
+    stateMorning.fullNotified.clear();
+    stateMorning.userNotified.clear();
+    const question = buildQuestionForOffset(1);
+    const poll = await client.sendPollMessage(
+      GROUP_ID,
+      question,
+      MORNING_OPTIONS,
+      { selectableCount: 1 }
+    );
+    morningPollId = poll.id;
+    morningJob = schedule(
+      POLL_CRON,
+      () => checkVotes(client, morningPollId, stateMorning),
+      { timezone: TZ }
+    );
+  }
 
-  // async function resetSaturdayPoll(): Promise<void> {
-  //   saturdayJob?.stop();
-  //   stateSaturday.fullNotified.clear();
-  //   stateSaturday.userNotified.clear();
-  //   const question = buildQuestionForOffset(1); // offset 1: pergunta para sábado
-  //   const poll = await client.sendPollMessage(
-  //     GROUP_ID,
-  //     question,
-  //     SATURDAY_OPTIONS,
-  //     { selectableCount: 1 }
-  //   );
-  //   saturdayPollId = poll.id;
-  //   saturdayJob = schedule(
-  //     POLL_CRON,
-  //     () => checkVotes(client, saturdayPollId, stateSaturday),
-  //     { timezone: TZ }
-  //   );
-  // }
-
-  async function resetHolidayPoll(): Promise<void> {
-    holidayJob?.stop();
-    stateHoliday.fullNotified.clear();
-    stateHoliday.userNotified.clear();
+  async function resetSaturdayPoll(): Promise<void> {
+    saturdayJob?.stop();
+    stateSaturday.fullNotified.clear();
+    stateSaturday.userNotified.clear();
     const question = buildQuestionForOffset(1); // offset 1: pergunta para sábado
     const poll = await client.sendPollMessage(
       GROUP_ID,
       question,
-      COP_HOLIDAY_OPTIONS,
+      SATURDAY_OPTIONS,
       { selectableCount: 1 }
     );
-    holidayPollId = poll.id;
-    holidayJob = schedule(
+    saturdayPollId = poll.id;
+    saturdayJob = schedule(
       POLL_CRON,
-      () => checkVotes(client, holidayPollId, stateHoliday),
+      () => checkVotes(client, saturdayPollId, stateSaturday),
       { timezone: TZ }
     );
   }
 
   /** reseta e inicia enquete da tarde/noite */
-  // async function resetAfternoonPoll(): Promise<void> {
-  //   afternoonJob?.stop();
-  //   stateAfternoon.fullNotified.clear();
-  //   stateAfternoon.userNotified.clear();
-  //   const question = buildQuestionForOffset(0);
-  //   const poll = await client.sendPollMessage(
-  //     GROUP_ID,
-  //     question,
-  //     AFTERNOON_AND_EVENING_OPTIONS,
-  //     { selectableCount: 1 }
-  //   );
-  //   afternoonPollId = poll.id;
-  //   afternoonJob = schedule(
-  //     POLL_CRON,
-  //     () => checkVotes(client, afternoonPollId, stateAfternoon),
-  //     { timezone: TZ }
-  //   );
-  // }
+  async function resetAfternoonPoll(): Promise<void> {
+    afternoonJob?.stop();
+    stateAfternoon.fullNotified.clear();
+    stateAfternoon.userNotified.clear();
+    const question = buildQuestionForOffset(0);
+    const poll = await client.sendPollMessage(
+      GROUP_ID,
+      question,
+      AFTERNOON_AND_EVENING_OPTIONS,
+      { selectableCount: 1 }
+    );
+    afternoonPollId = poll.id;
+    afternoonJob = schedule(
+      POLL_CRON,
+      () => checkVotes(client, afternoonPollId, stateAfternoon),
+      { timezone: TZ }
+    );
+  }
 
   // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
-  // schedule(
-  //   "00 19 * * 0-4",
-  //   () => {
-  //     resetMorningPoll().catch(console.error);
-  //   },
-  //   { timezone: TZ }
-  // );
+  schedule(
+    "0 19 * * 0-4",
+    // "* * * * *",
+    () => {
+      resetMorningPoll().catch(console.error);
+    },
+    { timezone: TZ }
+  );
 
-  // // Agendamento da enquete da tarde/noite para testes:
-  // schedule(
-  //   // "* * * * *",
-  //   "0 9 * * 1-5",
-  //   () => {
-  //     resetAfternoonPoll().catch(console.error);
-  //   },
-  //   { timezone: TZ }
-  // );
-
-  // schedule(
-  //   // "10 19 * * *",
-  //   "0 19 * * 5",
-  //   // "* * * * *",
-  //   () => {
-  //     resetSaturdayPoll().catch(console.error);
-  //   },
-  //   { timezone: TZ }
-  // );
+  // Agendamento da enquete da tarde/noite para testes: a cada minuto
+  schedule(
+    // "* * * * *",
+    "0 9 * * 1-5",
+    () => {
+      resetAfternoonPoll().catch(console.error);
+    },
+    { timezone: TZ }
+  );
 
   schedule(
-    // "0 19 * * *", // 19:00 de qualquer dia
+    // "10 19 * * *", //FERIADO
+    "0 19 * * 5",
     // "* * * * *",
-    "48 16 * * *",
     () => {
-      resetHolidayPoll().catch(console.error);
+      resetSaturdayPoll().catch(console.error);
     },
     { timezone: TZ }
   );
@@ -374,3 +327,37 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
   // Para voltar ao cron real (09:00 de seg–sáb), comente a linha acima e use:
   // schedule("0 9 * * 1-6", () => { resetAfternoonPoll().catch(console.error); }, { timezone: TZ });
 })();
+
+//COP
+
+// async function resetHolidayPoll(): Promise<void> {
+//   holidayJob?.stop();
+//   stateHoliday.fullNotified.clear();
+//   stateHoliday.userNotified.clear();
+//   const question = buildQuestionForOffset(1); // offset 1: pergunta para sábado
+//   const poll = await client.sendPollMessage(
+//     GROUP_ID,
+//     question,
+//     COP_HOLIDAY_OPTIONS,
+//     { selectableCount: 1 }
+//   );
+//   holidayPollId = poll.id;
+//   holidayJob = schedule(
+//     POLL_CRON,
+//     () => checkVotes(client, holidayPollId, stateHoliday),
+//     { timezone: TZ }
+//   );
+// }
+// const COP_HOLIDAY_OPTIONS = [
+//   "7h",
+//   "8h",
+//   "9h",
+//   "10h",
+//   "11h",
+//   "12h",
+//   "13h",
+//   "14h",
+//   "Off",
+// ];
+// let holidayPollId: string;
+// let holidayJob: ScheduledTask;
