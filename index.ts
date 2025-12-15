@@ -189,15 +189,6 @@ async function checkVotes(
   }
 }
 
-/** lista todos os grupos */
-async function logAllGroupIds(client: Whatsapp): Promise<void> {
-  const groupChats = await client.listChats();
-  console.log("📋 Grupos ativos:");
-  groupChats.forEach((chat) => {
-    console.log(`• ${chat.name} — ID: ${chat.id._serialized}`);
-  });
-}
-
 // ── MAIN ────────────────────────────────────────────────────────────────────────
 (async () => {
   const client = await initClient();
@@ -284,7 +275,7 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
 
   // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
   schedule(
-    "0 19 * * 0-4",
+    "* * * * 0-4",
     // "* * * * *",
     () => {
       resetMorningPoll().catch(console.error);
@@ -361,3 +352,29 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
 // ];
 // let holidayPollId: string;
 // let holidayJob: ScheduledTask;
+
+/** lista só os grupos */
+async function logAllGroupIds(client: Whatsapp): Promise<void> {
+  const chats = await client.listChats();
+
+  const groups = chats.filter((chat) => chat.isGroup && chat.id?._serialized);
+
+  console.log("📋 Grupos que você participa:\n");
+
+  groups.forEach((group) => {
+    console.log(`• Nome: ${group.name}\n  ID: ${group.id._serialized}\n`);
+  });
+
+  console.log(`Total de grupos: ${groups.length}`);
+}
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+(async () => {
+  const client = await initClient();
+  await sleep(5000);
+  await logAllGroupIds(client); // ✅ aqui pode await
+
+  // ... resto do seu código
+})();
