@@ -88,7 +88,7 @@ function countVotesByName(votes: Vote[]): Record<string, number> {
     const fallbackName = `[sem nome] - ${vote.sender.user}`;
     for (const opt of vote.selectedOptions ?? []) {
       if (!opt || !opt.name) {
-        console.warn("voto sem name:", vote);
+        console.warn("voto sem nome:", vote);
         continue;
       }
 
