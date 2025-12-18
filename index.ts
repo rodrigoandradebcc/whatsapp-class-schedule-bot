@@ -190,8 +190,16 @@ async function checkVotes(
 }
 
 // ── MAIN ────────────────────────────────────────────────────────────────────────
+// ── MAIN ────────────────────────────────────────────────────────────────────────
 (async () => {
   const client = await initClient();
+  process.on("unhandledRejection", (reason) => {
+    console.error("Unhandled Rejection:", reason);
+  });
+
+  process.on("uncaughtException", (err) => {
+    console.error("Uncaught Exception:", err);
+  });
   await logAllGroupIds(client);
 
   const stateMorning: State = {
@@ -367,14 +375,3 @@ async function logAllGroupIds(client: Whatsapp): Promise<void> {
 
   console.log(`Total de grupos: ${groups.length}`);
 }
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-(async () => {
-  const client = await initClient();
-  await sleep(5000);
-  await logAllGroupIds(client); // ✅ aqui pode await
-
-  // ... resto do seu código
-})();
