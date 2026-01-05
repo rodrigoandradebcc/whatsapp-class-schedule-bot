@@ -25,7 +25,7 @@ const AFTERNOON_AND_EVENING_OPTIONS = [
   "18h",
   "19h",
   "20h",
-  // "21h",
+  "21h",
   "Off",
 ];
 const SATURDAY_OPTIONS = ["7h", "8h", "9h", "10h", "11h", "12h", "13h", "14h"];
