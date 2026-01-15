@@ -9,10 +9,10 @@ const TZ = "America/Belem";
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
 
 // GRUPO DE TESTE
-// const GROUP_ID = "120363419276384559@g.us";
+const GROUP_ID = "120363419276384559@g.us";
 
 // GRUPO REAL CT SABOIA
-const GROUP_ID = "559182178645-1552489380@g.us";
+// const GROUP_ID = "559182178645-1552489380@g.us";
 
 const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
 const AFTERNOON_AND_EVENING_OPTIONS = [
@@ -58,7 +58,10 @@ async function initClient(): Promise<Whatsapp> {
     tokenStore: "file",
     browserArgs: ["--no-sandbox"],
     autoClose: 0,
-    puppeteerOptions: { args: ["--no-sandbox"] },
+    puppeteerOptions: {
+      args: ["--no-sandbox"],
+      protocolTimeout: 120000,
+    },
     catchQR: (base64Qrimg, asciiQR, attempts, urlCode) => {
       console.clear();
       console.log("📲 Escaneie o QR Code abaixo para logar no WhatsApp:");
@@ -293,8 +296,8 @@ async function checkVotes(
 
   // Agendamento da enquete da tarde/noite para testes: a cada minuto
   schedule(
-    "* * * * *",
-    // "0 9 * * 1-5",
+    // "* * * * *",
+    "0 9 * * 1-5",
     () => {
       resetAfternoonPoll().catch(console.error);
     },
