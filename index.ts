@@ -59,8 +59,9 @@ async function initClient(): Promise<Whatsapp> {
     browserArgs: ["--no-sandbox"],
     autoClose: 0,
     puppeteerOptions: {
-      args: ["--no-sandbox"],
-      protocolTimeout: 120000,
+      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+      protocolTimeout: 300000,
+      timeout: 0,
     },
     catchQR: (base64Qrimg, asciiQR, attempts, urlCode) => {
       console.clear();
@@ -286,7 +287,7 @@ async function checkVotes(
 
   // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
   schedule(
-    "0 20 * * 0-4",
+    "0 19 * * 0-4",
     // "* * * * *",
     () => {
       resetMorningPoll().catch(console.error);
