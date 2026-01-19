@@ -342,8 +342,8 @@ async function checkVotes(
 
   // Agendamento da enquete da tarde/noite para testes: a cada minuto
   schedule(
-    "* * * * *",
-    // "0 9 * * 1-5",
+    // "* * * * *",
+    "0 9 * * 1-5",
     () => {
       resetAfternoonPoll().catch(console.error);
     },
