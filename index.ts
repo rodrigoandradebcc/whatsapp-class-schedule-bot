@@ -45,6 +45,16 @@ interface Vote {
   sender: { _serialized: string; user: string };
 }
 
+async function logDuration<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const startedAt = Date.now();
+  try {
+    return await fn();
+  } finally {
+    const elapsedMs = Date.now() - startedAt;
+    console.log(`⏱️ ${label} levou ${elapsedMs}ms`);
+  }
+}
+
 // ── FUNÇÕES AUXILIARES ──────────────────────────────────────────────────────────
 
 /** inicializa e retorna o client WPPConnect */
@@ -88,48 +98,70 @@ function buildQuestionForOffset(offsetDays: number): string {
 
 /** conta votos por opção */
 function countVotesByName(votes: Vote[]): Record<string, number> {
-  return votes.reduce((acc, vote) => {
-    const fallbackName = `[sem nome] - ${vote.sender.user}`;
-    for (const opt of vote.selectedOptions ?? []) {
-      if (!opt || !opt.name) {
-        console.warn("voto sem nome:", vote);
-        continue;
-      }
+  return votes.reduce(
+    (acc, vote) => {
+      const fallbackName = `[sem nome] - ${vote.sender.user}`;
+      for (const opt of vote.selectedOptions ?? []) {
+        if (!opt || !opt.name) {
+          console.warn("voto sem nome:", vote);
+          continue;
+        }
 
-      const key = opt.name ?? fallbackName;
-      acc[key] = (acc[key] || 0) + 1;
-    }
-    return acc;
-  }, {} as Record<string, number>);
+        const key = opt.name ?? fallbackName;
+        acc[key] = (acc[key] || 0) + 1;
+      }
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 }
 
 /** retorna último votante para uma opção */
 function getLastVoterForOption(votes: Vote[], opt: string): string | null {
   const filtered = votes.filter((v) =>
-    v.selectedOptions.some((o) => o && o.name === opt)
+    v.selectedOptions.some((o) => o && o.name === opt),
   );
   filtered.sort((a, b) => a.timestamp - b.timestamp);
   return filtered.length ? filtered[filtered.length - 1].sender.user : null;
 }
+
+function isChatNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const anyErr = err as { code?: string; message?: string };
+  return (
+    anyErr.code === "chat_not_found" ||
+    (anyErr.message ?? "").includes("Chat not found")
+  );
+}
+
+async function ensureGroupChatLoaded(client: Whatsapp): Promise<void> {
+  try {
+    await logDuration("getChatById(GROUP_ID)", () =>
+      client.getChatById(GROUP_ID),
+    );
+  } catch (err) {
+    console.warn("Falha ao carregar chat do grupo:", err);
+  }
+}
 /** notifica grupo que opção atingiu a capacidade */
 async function notifyGroupCapacityReached(
   client: Whatsapp,
-  opt: string
+  opt: string,
 ): Promise<void> {
   await client.sendText(
     GROUP_ID,
-    `🚫 O horário de *${opt}* atingiu o limite de ${CAPACITY} participantes e foi fechado.`
+    `🚫 O horário de *${opt}* atingiu o limite de ${CAPACITY} participantes e foi fechado.`,
   );
 }
 
 /** notifica grupo que opção reabriu vaga */
 async function notifyGroupSlotOpened(
   client: Whatsapp,
-  opt: string
+  opt: string,
 ): Promise<void> {
   await client.sendText(
     GROUP_ID,
-    `🔓 O horário de *${opt}* agora tem vaga novamente!`
+    `🔓 O horário de *${opt}* agora tem vaga novamente!`,
   );
 }
 
@@ -137,13 +169,13 @@ async function notifyGroupSlotOpened(
 async function notifyUserSlotClosed(
   client: Whatsapp,
   opt: string,
-  userId: string
+  userId: string,
 ): Promise<void> {
   const contact = await client.getContact(userId);
   const name = contact.pushname || contact.formattedName || userId;
   await client.sendText(
     GROUP_ID,
-    `${name}, o horário de *${opt}* está fechado. Por favor, escolha outro.`
+    `${name}, o horário de *${opt}* está fechado. Por favor, escolha outro.`,
   );
 }
 
@@ -151,10 +183,23 @@ async function notifyUserSlotClosed(
 async function checkVotes(
   client: Whatsapp,
   pollId: string,
-  state: State
+  state: State,
 ): Promise<void> {
   try {
-    const { votes } = await client.getVotes(pollId);
+    await ensureGroupChatLoaded(client);
+    let votesResult;
+    try {
+      votesResult = await logDuration(`getVotes(${pollId})`, () =>
+        client.getVotes(pollId),
+      );
+    } catch (err) {
+      if (!isChatNotFoundError(err)) throw err;
+      await ensureGroupChatLoaded(client);
+      votesResult = await logDuration(`getVotes(${pollId}) [retry]`, () =>
+        client.getVotes(pollId),
+      );
+    }
+    const { votes } = votesResult;
     console.log("DEBUG getVotes:", votes);
     const counts = countVotesByName(votes as Vote[]);
 
@@ -236,13 +281,13 @@ async function checkVotes(
       GROUP_ID,
       question,
       MORNING_OPTIONS,
-      { selectableCount: 1 }
+      { selectableCount: 1 },
     );
     morningPollId = poll.id;
     morningJob = schedule(
       POLL_CRON,
       () => checkVotes(client, morningPollId, stateMorning),
-      { timezone: TZ }
+      { timezone: TZ },
     );
   }
 
@@ -255,13 +300,13 @@ async function checkVotes(
       GROUP_ID,
       question,
       SATURDAY_OPTIONS,
-      { selectableCount: 1 }
+      { selectableCount: 1 },
     );
     saturdayPollId = poll.id;
     saturdayJob = schedule(
       POLL_CRON,
       () => checkVotes(client, saturdayPollId, stateSaturday),
-      { timezone: TZ }
+      { timezone: TZ },
     );
   }
 
@@ -275,13 +320,13 @@ async function checkVotes(
       GROUP_ID,
       question,
       AFTERNOON_AND_EVENING_OPTIONS,
-      { selectableCount: 1 }
+      { selectableCount: 1 },
     );
     afternoonPollId = poll.id;
     afternoonJob = schedule(
       POLL_CRON,
       () => checkVotes(client, afternoonPollId, stateAfternoon),
-      { timezone: TZ }
+      { timezone: TZ },
     );
   }
 
@@ -292,17 +337,17 @@ async function checkVotes(
     () => {
       resetMorningPoll().catch(console.error);
     },
-    { timezone: TZ }
+    { timezone: TZ },
   );
 
   // Agendamento da enquete da tarde/noite para testes: a cada minuto
   schedule(
-    // "* * * * *",
-    "0 9 * * 1-5",
+    "* * * * *",
+    // "0 9 * * 1-5",
     () => {
       resetAfternoonPoll().catch(console.error);
     },
-    { timezone: TZ }
+    { timezone: TZ },
   );
 
   schedule(
@@ -312,7 +357,7 @@ async function checkVotes(
     () => {
       resetSaturdayPoll().catch(console.error);
     },
-    { timezone: TZ }
+    { timezone: TZ },
   );
 
   // schedule(
@@ -367,7 +412,7 @@ async function checkVotes(
 
 /** lista só os grupos */
 async function logAllGroupIds(client: Whatsapp): Promise<void> {
-  const chats = await client.listChats();
+  const chats = await logDuration("listChats()", () => client.listChats());
 
   const groups = chats.filter((chat) => chat.isGroup && chat.id?._serialized);
 
