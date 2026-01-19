@@ -3,7 +3,7 @@ import type { Whatsapp } from "@wppconnect-team/wppconnect";
 import { schedule, ScheduledTask } from "node-cron";
 
 // ── CONFIGURAÇÃO DE CRONS E TIMEZONE ────────────────────────────────────────────
-const POLL_CRON = "*/2 * * * * *"; // para checagem de votos em teste
+const POLL_CRON = "*/10 * * * * *"; // reduz carga na checagem de votos
 const TZ = "America/Belem";
 
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
