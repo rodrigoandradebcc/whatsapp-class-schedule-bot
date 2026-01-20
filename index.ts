@@ -70,7 +70,7 @@ async function initClient(): Promise<Whatsapp> {
     autoClose: 0,
     puppeteerOptions: {
       args: ["--no-sandbox", "--disable-dev-shm-usage"],
-      protocolTimeout: 300000,
+      protocolTimeout: 0,
       timeout: 0,
     },
     catchQR: (base64Qrimg, asciiQR, attempts, urlCode) => {
@@ -142,6 +142,34 @@ async function ensureGroupChatLoaded(client: Whatsapp): Promise<void> {
   } catch (err) {
     console.warn("Falha ao carregar chat do grupo:", err);
   }
+}
+
+async function waitForClientReady(
+  client: Whatsapp,
+  timeoutMs = 120000,
+): Promise<void> {
+  const alreadyConnected = await client.isConnected().catch(() => false);
+  if (alreadyConnected) return;
+
+  await new Promise<void>((resolve, reject) => {
+    let disposer: { dispose: () => void } | undefined;
+    const timeout = setTimeout(() => {
+      disposer?.dispose();
+      reject(
+        new Error(
+          `Timeout aguardando WhatsApp ficar CONNECTED (${timeoutMs}ms)`,
+        ),
+      );
+    }, timeoutMs);
+
+    disposer = client.onStateChange((state) => {
+      if (state === "CONNECTED") {
+        clearTimeout(timeout);
+        disposer?.dispose();
+        resolve();
+      }
+    });
+  });
 }
 /** notifica grupo que opção atingiu a capacidade */
 async function notifyGroupCapacityReached(
@@ -249,6 +277,7 @@ async function checkVotes(
   process.on("uncaughtException", (err) => {
     console.error("Uncaught Exception:", err);
   });
+  await waitForClientReady(client);
   await logAllGroupIds(client);
 
   const stateMorning: State = {
