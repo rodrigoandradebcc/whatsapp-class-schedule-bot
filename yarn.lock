@@ -524,13 +524,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wppconnect-team/wppconnect@npm:^1.37.9":
-  version: 1.37.11
-  resolution: "@wppconnect-team/wppconnect@npm:1.37.11"
+"@wppconnect-team/wppconnect@npm:1.38.0":
+  version: 1.38.0
+  resolution: "@wppconnect-team/wppconnect@npm:1.38.0"
   dependencies:
     "@img/sharp-win32-x64": "npm:^0.34.5"
-    "@wppconnect/wa-js": "npm:^3.19.8"
-    "@wppconnect/wa-version": "npm:^1.5.3081"
+    "@wppconnect/wa-js": "npm:^3.20.0"
+    "@wppconnect/wa-version": "npm:^1.5.3099"
     atob: "npm:^2.1.2"
     axios: "npm:^1.13.2"
     boxen: "npm:^5.1.2"
@@ -564,24 +564,24 @@ __metadata:
       optional: true
     fsevents:
       optional: true
-  checksum: 10c0/df4e2005468a6249ba646e24b1326008a1000cd7d05380b1bde675dc255625d9ff069247f152bc08d792a0ad76c4300f3744533928c348c71b512fc3b57bf8a8
+  checksum: 10c0/33ca85135c8d47d4602260500d180c4409ac1f58337e440844e000f920242f1b8cf0a01ee74b81590cc63e1165c298ea332b244e09f7cd20ba20309016346184
   languageName: node
   linkType: hard
 
-"@wppconnect/wa-js@npm:^3.19.8":
-  version: 3.19.8
-  resolution: "@wppconnect/wa-js@npm:3.19.8"
-  checksum: 10c0/8d453fe5a2a309c60b6c7b77dd299d8d076512af7e2f5881a1f29d6560752b9fafdfabd81a2b0d191908882c2a8a575977aee799a9edf7fbbf7c0956ccf039ee
+"@wppconnect/wa-js@npm:^3.20.0":
+  version: 3.20.0
+  resolution: "@wppconnect/wa-js@npm:3.20.0"
+  checksum: 10c0/f28c0b23f82e90cafa06cbd1d3da69d4fa33ebe970339dc5db0ed135caaa76b229267717b14b8b4d46658797e392d659c227dee13642fd8d0ae7880005e00dcf
   languageName: node
   linkType: hard
 
-"@wppconnect/wa-version@npm:^1.5.3081":
-  version: 1.5.3081
-  resolution: "@wppconnect/wa-version@npm:1.5.3081"
+"@wppconnect/wa-version@npm:^1.5.3099":
+  version: 1.5.3105
+  resolution: "@wppconnect/wa-version@npm:1.5.3105"
   dependencies:
     node-fetch: "npm:^2.7.0"
     semver: "npm:^7.7.3"
-  checksum: 10c0/4ba8fab6fcb3c493a58ae1b36b1d8bf820a00561ad61fa1fdfc0ce879374fb5402f96a9d1d0d8a8295c331c323acdeee5b356291edb622aa2a7dfeb570cdf958
+  checksum: 10c0/c67b54c9673eef8312050f3cab30559a620bf51f35889c6e8a7b827f94b521ef5d4bcd0858a34a621ed091f04e1847afaa8827db424b25db75611f035a9a17ff
   languageName: node
   linkType: hard
 
@@ -3721,7 +3721,7 @@ __metadata:
     "@types/node": "npm:^22.15.21"
     "@types/node-cron": "npm:^3.0.11"
     "@types/qrcode-terminal": "npm:^0.12.2"
-    "@wppconnect-team/wppconnect": "npm:^1.37.9"
+    "@wppconnect-team/wppconnect": "npm:1.38.0"
     node-cron: "npm:^4.0.6"
     nodemon: "npm:^3.1.10"
     puppeteer-extra: "npm:^3.3.6"
