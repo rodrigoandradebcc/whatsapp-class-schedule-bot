@@ -139,8 +139,8 @@ function isMessageNotFoundError(err: unknown): boolean {
   const anyErr = err as { code?: string; message?: string };
   return (
     anyErr.code === "msg_not_found" ||
-    (anyErr.message ?? "").includes("Message") &&
-      (anyErr.message ?? "").includes("not found")
+    ((anyErr.message ?? "").includes("Message") &&
+      (anyErr.message ?? "").includes("not found"))
   );
 }
 
@@ -404,8 +404,8 @@ async function checkVotes(
 
   // Agendamento da enquete da tarde/noite para testes: a cada minuto
   schedule(
-    "* * * * *",
-    // "0 9 * * 1-5",
+    // "* * * * *",
+    "0 9 * * 1-5",
     () => {
       resetAfternoonPoll().catch(console.error);
     },
