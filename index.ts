@@ -134,6 +134,16 @@ function isChatNotFoundError(err: unknown): boolean {
   );
 }
 
+function isMessageNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const anyErr = err as { code?: string; message?: string };
+  return (
+    anyErr.code === "msg_not_found" ||
+    (anyErr.message ?? "").includes("Message") &&
+      (anyErr.message ?? "").includes("not found")
+  );
+}
+
 async function ensureGroupChatLoaded(client: Whatsapp): Promise<void> {
   try {
     await logDuration("getChatById(GROUP_ID)", () =>
@@ -221,12 +231,29 @@ async function checkVotes(
         client.getVotes(pollId),
       );
     } catch (err) {
-      if (!isChatNotFoundError(err)) throw err;
-      await ensureGroupChatLoaded(client);
-      votesResult = await logDuration(`getVotes(${pollId}) [retry]`, () =>
-        client.getVotes(pollId),
-      );
+      if (isMessageNotFoundError(err)) {
+        console.warn(
+          "Enquete ainda não encontrada no chat. Tentando novamente em instantes...",
+        );
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await ensureGroupChatLoaded(client);
+        try {
+          votesResult = await logDuration(`getVotes(${pollId}) [retry]`, () =>
+            client.getVotes(pollId),
+          );
+        } catch (retryErr) {
+          if (isMessageNotFoundError(retryErr)) return;
+          if (!isChatNotFoundError(retryErr)) throw retryErr;
+        }
+      } else {
+        if (!isChatNotFoundError(err)) throw err;
+        await ensureGroupChatLoaded(client);
+        votesResult = await logDuration(`getVotes(${pollId}) [retry]`, () =>
+          client.getVotes(pollId),
+        );
+      }
     }
+    if (!votesResult) return;
     const { votes } = votesResult;
     console.log("DEBUG getVotes:", votes);
     const counts = countVotesByName(votes as Vote[]);
@@ -305,6 +332,7 @@ async function checkVotes(
     morningJob?.stop();
     stateMorning.fullNotified.clear();
     stateMorning.userNotified.clear();
+    await ensureGroupChatLoaded(client);
     const question = buildQuestionForOffset(1);
     const poll = await client.sendPollMessage(
       GROUP_ID,
@@ -313,6 +341,7 @@ async function checkVotes(
       { selectableCount: 1 },
     );
     morningPollId = poll.id;
+    await new Promise((resolve) => setTimeout(resolve, 3000));
     morningJob = schedule(
       POLL_CRON,
       () => checkVotes(client, morningPollId, stateMorning),
@@ -324,6 +353,7 @@ async function checkVotes(
     saturdayJob?.stop();
     stateSaturday.fullNotified.clear();
     stateSaturday.userNotified.clear();
+    await ensureGroupChatLoaded(client);
     const question = buildQuestionForOffset(1); // offset 1: pergunta para sábado
     const poll = await client.sendPollMessage(
       GROUP_ID,
@@ -332,6 +362,7 @@ async function checkVotes(
       { selectableCount: 1 },
     );
     saturdayPollId = poll.id;
+    await new Promise((resolve) => setTimeout(resolve, 3000));
     saturdayJob = schedule(
       POLL_CRON,
       () => checkVotes(client, saturdayPollId, stateSaturday),
@@ -344,6 +375,7 @@ async function checkVotes(
     afternoonJob?.stop();
     stateAfternoon.fullNotified.clear();
     stateAfternoon.userNotified.clear();
+    await ensureGroupChatLoaded(client);
     const question = buildQuestionForOffset(0);
     const poll = await client.sendPollMessage(
       GROUP_ID,
@@ -352,6 +384,7 @@ async function checkVotes(
       { selectableCount: 1 },
     );
     afternoonPollId = poll.id;
+    await new Promise((resolve) => setTimeout(resolve, 3000));
     afternoonJob = schedule(
       POLL_CRON,
       () => checkVotes(client, afternoonPollId, stateAfternoon),
@@ -371,8 +404,8 @@ async function checkVotes(
 
   // Agendamento da enquete da tarde/noite para testes: a cada minuto
   schedule(
-    // "* * * * *",
-    "0 9 * * 1-5",
+    "* * * * *",
+    // "0 9 * * 1-5",
     () => {
       resetAfternoonPoll().catch(console.error);
     },
