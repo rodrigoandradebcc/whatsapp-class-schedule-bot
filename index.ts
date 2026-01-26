@@ -181,6 +181,52 @@ async function waitForClientReady(
     });
   });
 }
+
+async function ensureClientReady(
+  client: Whatsapp,
+  context: string,
+): Promise<boolean> {
+  try {
+    await waitForClientReady(client);
+    return true;
+  } catch (err) {
+    console.error(`❌ ${context}: WhatsApp não conectou a tempo`, err);
+    return false;
+  }
+}
+
+function nowInTimezoneLabel(): string {
+  return new Date().toLocaleString("pt-BR", { timeZone: TZ });
+}
+
+async function sendPollWithRetry(
+  client: Whatsapp,
+  question: string,
+  options: string[],
+  context: string,
+  maxAttempts = 3,
+) {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(
+        `🗳️ ${context}: enviando enquete (tentativa ${attempt}/${maxAttempts})`,
+      );
+      const poll = await client.sendPollMessage(GROUP_ID, question, options, {
+        selectableCount: 1,
+      });
+      console.log(`✅ ${context}: enquete enviada`);
+      return poll;
+    } catch (err) {
+      lastErr = err;
+      console.error(`⚠️ ${context}: falha ao enviar enquete`, err);
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
+  }
+  throw lastErr;
+}
 /** notifica grupo que opção atingiu a capacidade */
 async function notifyGroupCapacityReached(
   client: Whatsapp,
@@ -332,13 +378,15 @@ async function checkVotes(
     morningJob?.stop();
     stateMorning.fullNotified.clear();
     stateMorning.userNotified.clear();
+    console.log(`⏰ resetMorningPoll acionado em ${nowInTimezoneLabel()}`);
+    if (!(await ensureClientReady(client, "resetMorningPoll"))) return;
     await ensureGroupChatLoaded(client);
     const question = buildQuestionForOffset(1);
-    const poll = await client.sendPollMessage(
-      GROUP_ID,
+    const poll = await sendPollWithRetry(
+      client,
       question,
       MORNING_OPTIONS,
-      { selectableCount: 1 },
+      "resetMorningPoll",
     );
     morningPollId = poll.id;
     await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -353,13 +401,15 @@ async function checkVotes(
     saturdayJob?.stop();
     stateSaturday.fullNotified.clear();
     stateSaturday.userNotified.clear();
+    console.log(`⏰ resetSaturdayPoll acionado em ${nowInTimezoneLabel()}`);
+    if (!(await ensureClientReady(client, "resetSaturdayPoll"))) return;
     await ensureGroupChatLoaded(client);
     const question = buildQuestionForOffset(1); // offset 1: pergunta para sábado
-    const poll = await client.sendPollMessage(
-      GROUP_ID,
+    const poll = await sendPollWithRetry(
+      client,
       question,
       SATURDAY_OPTIONS,
-      { selectableCount: 1 },
+      "resetSaturdayPoll",
     );
     saturdayPollId = poll.id;
     await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -375,13 +425,15 @@ async function checkVotes(
     afternoonJob?.stop();
     stateAfternoon.fullNotified.clear();
     stateAfternoon.userNotified.clear();
+    console.log(`⏰ resetAfternoonPoll acionado em ${nowInTimezoneLabel()}`);
+    if (!(await ensureClientReady(client, "resetAfternoonPoll"))) return;
     await ensureGroupChatLoaded(client);
     const question = buildQuestionForOffset(0);
-    const poll = await client.sendPollMessage(
-      GROUP_ID,
+    const poll = await sendPollWithRetry(
+      client,
       question,
       AFTERNOON_AND_EVENING_OPTIONS,
-      { selectableCount: 1 },
+      "resetAfternoonPoll",
     );
     afternoonPollId = poll.id;
     await new Promise((resolve) => setTimeout(resolve, 3000));
