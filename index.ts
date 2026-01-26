@@ -448,8 +448,8 @@ async function checkVotes(
 
   // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
   schedule(
-    // "0 19 * * 0-4",
-    "* * * * *",
+    "0 19 * * 0-4",
+    // "* * * * *",
     () => {
       resetMorningPoll().catch(console.error);
     },
