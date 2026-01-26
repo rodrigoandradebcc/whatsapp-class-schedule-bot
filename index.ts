@@ -68,6 +68,8 @@ async function initClient(): Promise<Whatsapp> {
     tokenStore: "file",
     browserArgs: ["--no-sandbox"],
     autoClose: 0,
+    // Disable device sync timeout too; otherwise WPPConnect will still auto-close.
+    deviceSyncTimeout: 0,
     puppeteerOptions: {
       args: ["--no-sandbox", "--disable-dev-shm-usage"],
       protocolTimeout: 0,
@@ -300,40 +302,40 @@ async function checkVotes(
       }
     }
     if (!votesResult) return;
-    const { votes } = votesResult;
-    console.log("DEBUG getVotes:", votes);
-    const counts = countVotesByName(votes as Vote[]);
+    // const { votes } = votesResult;
+    // console.log("DEBUG getVotes:", votes);
+    // const counts = countVotesByName(votes as Vote[]);
 
-    // reabertura de vagas
-    state.fullNotified.forEach((opt) => {
-      if ((counts[opt] || 0) < CAPACITY) {
-        notifyGroupSlotOpened(client, opt);
-        state.fullNotified.delete(opt);
-        state.userNotified.forEach((key) => {
-          if (key.startsWith(`${opt}:`)) state.userNotified.delete(key);
-        });
-      }
-    });
+    // // reabertura de vagas
+    // state.fullNotified.forEach((opt) => {
+    //   if ((counts[opt] || 0) < CAPACITY) {
+    //     notifyGroupSlotOpened(client, opt);
+    //     state.fullNotified.delete(opt);
+    //     state.userNotified.forEach((key) => {
+    //       if (key.startsWith(`${opt}:`)) state.userNotified.delete(key);
+    //     });
+    //   }
+    // });
 
-    // fechamento e votos extras
-    Object.entries(counts).forEach(([opt, cnt]) => {
-      if (cnt === CAPACITY && !state.fullNotified.has(opt)) {
-        notifyGroupCapacityReached(client, opt);
-        state.fullNotified.add(opt);
-      }
-      if (cnt > CAPACITY) {
-        const extra = getLastVoterForOption(votes as Vote[], opt);
-        const key = `${opt}:${extra}`;
-        if (
-          extra &&
-          state.fullNotified.has(opt) &&
-          !state.userNotified.has(key)
-        ) {
-          notifyUserSlotClosed(client, opt, extra);
-          state.userNotified.add(key);
-        }
-      }
-    });
+    // // fechamento e votos extras
+    // Object.entries(counts).forEach(([opt, cnt]) => {
+    //   if (cnt === CAPACITY && !state.fullNotified.has(opt)) {
+    //     notifyGroupCapacityReached(client, opt);
+    //     state.fullNotified.add(opt);
+    //   }
+    //   if (cnt > CAPACITY) {
+    //     const extra = getLastVoterForOption(votes as Vote[], opt);
+    //     const key = `${opt}:${extra}`;
+    //     if (
+    //       extra &&
+    //       state.fullNotified.has(opt) &&
+    //       !state.userNotified.has(key)
+    //     ) {
+    //       notifyUserSlotClosed(client, opt, extra);
+    //       state.userNotified.add(key);
+    //     }
+    //   }
+    // });
   } catch (err) {
     console.error("Erro em checkVotes:", err);
   }
@@ -367,11 +369,11 @@ async function checkVotes(
   };
 
   let morningPollId: string;
-  let morningJob: ScheduledTask;
+  let morningJob: ScheduledTask | undefined;
   let afternoonPollId: string;
-  let afternoonJob: ScheduledTask;
+  let afternoonJob: ScheduledTask | undefined;
   let saturdayPollId: string;
-  let saturdayJob: ScheduledTask;
+  let saturdayJob: ScheduledTask | undefined;
 
   /** reseta e inicia enquete da manhã */
   async function resetMorningPoll(): Promise<void> {
@@ -390,11 +392,11 @@ async function checkVotes(
     );
     morningPollId = poll.id;
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    morningJob = schedule(
-      POLL_CRON,
-      () => checkVotes(client, morningPollId, stateMorning),
-      { timezone: TZ },
-    );
+    // morningJob = schedule(
+    //   POLL_CRON,
+    //   () => checkVotes(client, morningPollId, stateMorning),
+    //   { timezone: TZ },
+    // );
   }
 
   async function resetSaturdayPoll(): Promise<void> {
@@ -413,11 +415,11 @@ async function checkVotes(
     );
     saturdayPollId = poll.id;
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    saturdayJob = schedule(
-      POLL_CRON,
-      () => checkVotes(client, saturdayPollId, stateSaturday),
-      { timezone: TZ },
-    );
+    // saturdayJob = schedule(
+    //   POLL_CRON,
+    //   () => checkVotes(client, saturdayPollId, stateSaturday),
+    //   { timezone: TZ },
+    // );
   }
 
   /** reseta e inicia enquete da tarde/noite */
@@ -437,17 +439,17 @@ async function checkVotes(
     );
     afternoonPollId = poll.id;
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    afternoonJob = schedule(
-      POLL_CRON,
-      () => checkVotes(client, afternoonPollId, stateAfternoon),
-      { timezone: TZ },
-    );
+    // afternoonJob = schedule(
+    //   POLL_CRON,
+    //   () => checkVotes(client, afternoonPollId, stateAfternoon),
+    //   { timezone: TZ },
+    // );
   }
 
   // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
   schedule(
-    "0 19 * * 0-4",
-    // "* * * * *",
+    // "0 19 * * 0-4",
+    "* * * * *",
     () => {
       resetMorningPoll().catch(console.error);
     },
