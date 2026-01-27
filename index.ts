@@ -214,9 +214,25 @@ async function sendPollWithRetry(
       console.log(
         `🗳️ ${context}: enviando enquete (tentativa ${attempt}/${maxAttempts})`,
       );
-      const poll = await client.sendPollMessage(GROUP_ID, question, options, {
-        selectableCount: 1,
-      });
+      const poll = await Promise.race([
+        client.sendPollMessage(GROUP_ID, question, options, {
+          selectableCount: 1,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `${context}: timeout enviando enquete (30s) para ${GROUP_ID}`,
+                ),
+              ),
+            30000,
+          ),
+        ),
+      ]);
+      if (!poll || !poll.id) {
+        throw new Error(`${context}: resposta da enquete sem id`);
+      }
       console.log(`✅ ${context}: enquete enviada`);
       return poll;
     } catch (err) {
