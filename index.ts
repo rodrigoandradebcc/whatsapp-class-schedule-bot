@@ -2,16 +2,12 @@ import * as wppconnect from "@wppconnect-team/wppconnect";
 import type { Whatsapp } from "@wppconnect-team/wppconnect";
 import { schedule, ScheduledTask } from "node-cron";
 
-// ── CONFIGURAÇÃO DE CRONS E TIMEZONE ────────────────────────────────────────────
-const POLL_CRON = "*/10 * * * * *"; // reduz carga na checagem de votos
+// ── CONFIGURAÇÃO DE TIMEZONE ───────────────────────────────────────────────────
 const TZ = "America/Belem";
+const SEND_POLL_TIMEOUT_MS = 60000;
 
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
 
-// GRUPO DE TESTE
-// const GROUP_ID = "120363419276384559@g.us";
-
-// GRUPO REAL CT SABOIA
 const GROUP_ID = "559182178645-1552489380@g.us";
 
 const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
@@ -31,7 +27,6 @@ const AFTERNOON_AND_EVENING_OPTIONS = [
 const SATURDAY_OPTIONS = ["7h", "8h", "9h", "10h", "11h", "12h", "13h", "14h"];
 
 const CAPACITY = 16; // máximo de votos por opção
-// const CAPACITY = 1; // máximo de votos por opção
 
 // ── TIPAGENS DE ESTADO ─────────────────────────────────────────────────────────
 interface State {
@@ -45,16 +40,11 @@ interface Vote {
   sender: { _serialized: string; user: string };
 }
 
-async function logDuration<T>(label: string, fn: () => Promise<T>): Promise<T> {
-  const startedAt = Date.now();
-  try {
-    return await fn();
-  } finally {
-    const elapsedMs = Date.now() - startedAt;
-    console.log(`⏱️ ${label} levou ${elapsedMs}ms`);
-  }
-}
+let client: Whatsapp;
 
+async function logDuration<T>(_: string, fn: () => Promise<T>): Promise<T> {
+  return fn();
+}
 // ── FUNÇÕES AUXILIARES ──────────────────────────────────────────────────────────
 
 /** inicializa e retorna o client WPPConnect */
@@ -64,9 +54,7 @@ async function initClient(): Promise<Whatsapp> {
     headless: true,
     useChrome: false,
     disableWelcome: true,
-    updatesLog: true,
     tokenStore: "file",
-    browserArgs: ["--no-sandbox"],
     autoClose: 0,
     // Disable device sync timeout too; otherwise WPPConnect will still auto-close.
     deviceSyncTimeout: 0,
@@ -80,10 +68,6 @@ async function initClient(): Promise<Whatsapp> {
       console.log("📲 Escaneie o QR Code abaixo para logar no WhatsApp:");
       console.log(asciiQR);
       console.log(`🔗 urlCode: ${urlCode}`);
-    },
-    statusFind: (statusSession, session) => {
-      console.log("📡 Status da sessão:", statusSession);
-      console.log("📌 Nome da sessão:", session);
     },
   });
 }
@@ -105,7 +89,6 @@ function countVotesByName(votes: Vote[]): Record<string, number> {
       const fallbackName = `[sem nome] - ${vote.sender.user}`;
       for (const opt of vote.selectedOptions ?? []) {
         if (!opt || !opt.name) {
-          console.warn("voto sem nome:", vote);
           continue;
         }
 
@@ -148,11 +131,9 @@ function isMessageNotFoundError(err: unknown): boolean {
 
 async function ensureGroupChatLoaded(client: Whatsapp): Promise<void> {
   try {
-    await logDuration("getChatById(GROUP_ID)", () =>
-      client.getChatById(GROUP_ID),
-    );
+    await client.getChatById(GROUP_ID);
   } catch (err) {
-    console.warn("Falha ao carregar chat do grupo:", err);
+    console.error("Falha ao carregar chat do grupo:", err);
   }
 }
 
@@ -197,53 +178,34 @@ async function ensureClientReady(
   }
 }
 
-function nowInTimezoneLabel(): string {
-  return new Date().toLocaleString("pt-BR", { timeZone: TZ });
-}
-
-async function sendPollWithRetry(
+async function sendPoll(
   client: Whatsapp,
   question: string,
   options: string[],
   context: string,
-  maxAttempts = 3,
 ) {
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      console.log(
-        `🗳️ ${context}: enviando enquete (tentativa ${attempt}/${maxAttempts})`,
-      );
-      const poll = await Promise.race([
-        client.sendPollMessage(GROUP_ID, question, options, {
-          selectableCount: 1,
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `${context}: timeout enviando enquete (30s) para ${GROUP_ID}`,
-                ),
-              ),
-            30000,
+  const poll = await Promise.race([
+    client.sendPollMessage(GROUP_ID, question, options, {
+      selectableCount: 1,
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `${context}: timeout enviando enquete (${Math.round(
+                SEND_POLL_TIMEOUT_MS / 1000,
+              )}s) para ${GROUP_ID}`,
+            ),
           ),
-        ),
-      ]);
-      if (!poll || !poll.id) {
-        throw new Error(`${context}: resposta da enquete sem id`);
-      }
-      console.log(`✅ ${context}: enquete enviada`);
-      return poll;
-    } catch (err) {
-      lastErr = err;
-      console.error(`⚠️ ${context}: falha ao enviar enquete`, err);
-      if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-      }
-    }
+        SEND_POLL_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+  if (!poll || !poll.id) {
+    throw new Error(`${context}: resposta da enquete sem id`);
   }
-  throw lastErr;
+  return poll;
 }
 /** notifica grupo que opção atingiu a capacidade */
 async function notifyGroupCapacityReached(
@@ -296,9 +258,6 @@ async function checkVotes(
       );
     } catch (err) {
       if (isMessageNotFoundError(err)) {
-        console.warn(
-          "Enquete ainda não encontrada no chat. Tentando novamente em instantes...",
-        );
         await new Promise((resolve) => setTimeout(resolve, 3000));
         await ensureGroupChatLoaded(client);
         try {
@@ -319,7 +278,6 @@ async function checkVotes(
     }
     if (!votesResult) return;
     // const { votes } = votesResult;
-    // console.log("DEBUG getVotes:", votes);
     // const counts = countVotesByName(votes as Vote[]);
 
     // // reabertura de vagas
@@ -360,7 +318,7 @@ async function checkVotes(
 // ── MAIN ────────────────────────────────────────────────────────────────────────
 // ── MAIN ────────────────────────────────────────────────────────────────────────
 (async () => {
-  const client = await initClient();
+  client = await initClient();
   process.on("unhandledRejection", (reason) => {
     console.error("Unhandled Rejection:", reason);
   });
@@ -369,8 +327,6 @@ async function checkVotes(
     console.error("Uncaught Exception:", err);
   });
   await waitForClientReady(client);
-  await logAllGroupIds(client);
-
   const stateMorning: State = {
     fullNotified: new Set(),
     userNotified: new Set(),
@@ -396,11 +352,10 @@ async function checkVotes(
     morningJob?.stop();
     stateMorning.fullNotified.clear();
     stateMorning.userNotified.clear();
-    console.log(`⏰ resetMorningPoll acionado em ${nowInTimezoneLabel()}`);
     if (!(await ensureClientReady(client, "resetMorningPoll"))) return;
     await ensureGroupChatLoaded(client);
     const question = buildQuestionForOffset(1);
-    const poll = await sendPollWithRetry(
+    const poll = await sendPoll(
       client,
       question,
       MORNING_OPTIONS,
@@ -408,22 +363,16 @@ async function checkVotes(
     );
     morningPollId = poll.id;
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    // morningJob = schedule(
-    //   POLL_CRON,
-    //   () => checkVotes(client, morningPollId, stateMorning),
-    //   { timezone: TZ },
-    // );
   }
 
   async function resetSaturdayPoll(): Promise<void> {
     saturdayJob?.stop();
     stateSaturday.fullNotified.clear();
     stateSaturday.userNotified.clear();
-    console.log(`⏰ resetSaturdayPoll acionado em ${nowInTimezoneLabel()}`);
     if (!(await ensureClientReady(client, "resetSaturdayPoll"))) return;
     await ensureGroupChatLoaded(client);
     const question = buildQuestionForOffset(1); // offset 1: pergunta para sábado
-    const poll = await sendPollWithRetry(
+    const poll = await sendPoll(
       client,
       question,
       SATURDAY_OPTIONS,
@@ -431,11 +380,6 @@ async function checkVotes(
     );
     saturdayPollId = poll.id;
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    // saturdayJob = schedule(
-    //   POLL_CRON,
-    //   () => checkVotes(client, saturdayPollId, stateSaturday),
-    //   { timezone: TZ },
-    // );
   }
 
   /** reseta e inicia enquete da tarde/noite */
@@ -443,11 +387,10 @@ async function checkVotes(
     afternoonJob?.stop();
     stateAfternoon.fullNotified.clear();
     stateAfternoon.userNotified.clear();
-    console.log(`⏰ resetAfternoonPoll acionado em ${nowInTimezoneLabel()}`);
     if (!(await ensureClientReady(client, "resetAfternoonPoll"))) return;
     await ensureGroupChatLoaded(client);
     const question = buildQuestionForOffset(0);
-    const poll = await sendPollWithRetry(
+    const poll = await sendPoll(
       client,
       question,
       AFTERNOON_AND_EVENING_OPTIONS,
@@ -455,26 +398,19 @@ async function checkVotes(
     );
     afternoonPollId = poll.id;
     await new Promise((resolve) => setTimeout(resolve, 3000));
-    // afternoonJob = schedule(
-    //   POLL_CRON,
-    //   () => checkVotes(client, afternoonPollId, stateAfternoon),
-    //   { timezone: TZ },
-    // );
   }
 
-  // Agendamento da enquete da manhã: 21:00 de domingo(0) a sexta(5)
+  // Agendamento da enquete da manhã: 19:00 de domingo(0) a quinta(4)
   schedule(
     "0 19 * * 0-4",
-    // "* * * * *",
     () => {
       resetMorningPoll().catch(console.error);
     },
     { timezone: TZ },
   );
 
-  // Agendamento da enquete da tarde/noite para testes: a cada minuto
+  // Agendamento da enquete da tarde/noite: 09:00 de segunda(1) a sexta(5)
   schedule(
-    // "* * * * *",
     "0 9 * * 1-5",
     () => {
       resetAfternoonPoll().catch(console.error);
@@ -483,76 +419,10 @@ async function checkVotes(
   );
 
   schedule(
-    // "10 19 * * *", //FERIADO
     "0 19 * * 5",
-    // "* * * * *",
     () => {
       resetSaturdayPoll().catch(console.error);
     },
     { timezone: TZ },
   );
-
-  // schedule(
-  //   "* * * * *", // todos os dias às 12:00
-  //   async () => {
-  //     try {
-  //       await client.sendText(GROUP_ID, "🤖 Bot CT.");
-  //     } catch (error) {
-  //       console.error("Erro ao enviar mensagem de teste:", error);
-  //     }
-  //   },
-  //   { timezone: TZ }
-  // );
-
-  // Para voltar ao cron real (09:00 de seg–sáb), comente a linha acima e use:
-  // schedule("0 9 * * 1-6", () => { resetAfternoonPoll().catch(console.error); }, { timezone: TZ });
 })();
-
-//COP
-
-// async function resetHolidayPoll(): Promise<void> {
-//   holidayJob?.stop();
-//   stateHoliday.fullNotified.clear();
-//   stateHoliday.userNotified.clear();
-//   const question = buildQuestionForOffset(1); // offset 1: pergunta para sábado
-//   const poll = await client.sendPollMessage(
-//     GROUP_ID,
-//     question,
-//     COP_HOLIDAY_OPTIONS,
-//     { selectableCount: 1 }
-//   );
-//   holidayPollId = poll.id;
-//   holidayJob = schedule(
-//     POLL_CRON,
-//     () => checkVotes(client, holidayPollId, stateHoliday),
-//     { timezone: TZ }
-//   );
-// }
-// const COP_HOLIDAY_OPTIONS = [
-//   "7h",
-//   "8h",
-//   "9h",
-//   "10h",
-//   "11h",
-//   "12h",
-//   "13h",
-//   "14h",
-//   "Off",
-// ];
-// let holidayPollId: string;
-// let holidayJob: ScheduledTask;
-
-/** lista só os grupos */
-async function logAllGroupIds(client: Whatsapp): Promise<void> {
-  const chats = await logDuration("listChats()", () => client.listChats());
-
-  const groups = chats.filter((chat) => chat.isGroup && chat.id?._serialized);
-
-  console.log("📋 Grupos que você participa:\n");
-
-  groups.forEach((group) => {
-    console.log(`• Nome: ${group.name}\n  ID: ${group.id._serialized}\n`);
-  });
-
-  console.log(`Total de grupos: ${groups.length}`);
-}
