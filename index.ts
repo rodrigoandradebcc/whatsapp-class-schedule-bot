@@ -10,7 +10,7 @@ const SEND_POLL_TIMEOUT_MS = 60000;
 
 const GROUP_ID = "559182178645-1552489380@g.us";
 
-const MORNING_OPTIONS = ["6h", "7h", "8h", "9h"];
+const MORNING_OPTIONS = ["6h", "7h", "8h", "9h", "10h", "11h"];
 const AFTERNOON_AND_EVENING_OPTIONS = [
   "12h",
   "13h",
