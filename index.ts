@@ -432,7 +432,7 @@ async function sendPoll(
 
   // Agendamento da enquete da manhã: 19:00 de domingo(0) a quinta(4)
   schedule(
-    "* * * * 0-4",
+    "0 19 * * 0-4",
     // "*/1 * * * *",
     () => {
       resetMorningPoll().catch(console.error);
