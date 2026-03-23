@@ -5,6 +5,8 @@ import { schedule, ScheduledTask } from "node-cron";
 // ── CONFIGURAÇÃO DE TIMEZONE ───────────────────────────────────────────────────
 const TZ = "America/Belem";
 const SEND_POLL_TIMEOUT_MS = 60000;
+const RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 5000;
 
 // ── CONSTANTES DA ENQUETE ───────────────────────────────────────────────────────
 
@@ -179,34 +181,61 @@ async function ensureClientReady(
   }
 }
 
+function isContextDestroyedError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const msg = (err as { message?: string }).message ?? "";
+  return (
+    msg.includes("Execution context was destroyed") ||
+    msg.includes("Session closed") ||
+    msg.includes("Target closed") ||
+    msg.includes("Protocol error")
+  );
+}
+
 async function sendPoll(
   client: Whatsapp,
   question: string,
   options: string[],
   context: string,
 ) {
-  const poll = await Promise.race([
-    client.sendPollMessage(GROUP_ID, question, options, {
-      selectableCount: 1,
-    }),
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () =>
-          reject(
-            new Error(
-              `${context}: timeout enviando enquete (${Math.round(
-                SEND_POLL_TIMEOUT_MS / 1000,
-              )}s) para ${GROUP_ID}`,
-            ),
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      const poll = await Promise.race([
+        client.sendPollMessage(GROUP_ID, question, options, {
+          selectableCount: 1,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `${context}: timeout enviando enquete (${Math.round(
+                    SEND_POLL_TIMEOUT_MS / 1000,
+                  )}s) para ${GROUP_ID}`,
+                ),
+              ),
+            SEND_POLL_TIMEOUT_MS,
           ),
-        SEND_POLL_TIMEOUT_MS,
-      ),
-    ),
-  ]);
-  if (!poll || !poll.id) {
-    throw new Error(`${context}: resposta da enquete sem id`);
+        ),
+      ]);
+      if (!poll || !poll.id) {
+        throw new Error(`${context}: resposta da enquete sem id`);
+      }
+      return poll;
+    } catch (err) {
+      if (isContextDestroyedError(err) && attempt < RETRY_ATTEMPTS) {
+        console.warn(
+          `⚠️ ${context}: contexto destruído (tentativa ${attempt}/${RETRY_ATTEMPTS}), aguardando reconexão...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        await ensureClientReady(client, `${context} retry ${attempt}`);
+        await ensureGroupChatLoaded(client);
+        continue;
+      }
+      throw err;
+    }
   }
-  return poll;
+  throw new Error(`${context}: todas as ${RETRY_ATTEMPTS} tentativas falharam`);
 }
 // /** notifica grupo que opção atingiu a capacidade */
 // async function notifyGroupCapacityReached(
@@ -403,7 +432,7 @@ async function sendPoll(
 
   // Agendamento da enquete da manhã: 19:00 de domingo(0) a quinta(4)
   schedule(
-    "0 19 * * 0-4",
+    "* * * * 0-4",
     // "*/1 * * * *",
     () => {
       resetMorningPoll().catch(console.error);
