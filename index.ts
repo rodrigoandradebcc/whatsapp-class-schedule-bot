@@ -57,6 +57,7 @@ async function initClient(): Promise<Whatsapp> {
     headless: true,
     useChrome: false,
     disableWelcome: true,
+    whatsappVersion: "",
     tokenStore: "file",
     autoClose: 0,
     // Disable device sync timeout too; otherwise WPPConnect will still auto-close.
